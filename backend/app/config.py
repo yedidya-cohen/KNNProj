@@ -13,7 +13,7 @@ class Settings(BaseModel):
     )
     jwt_algorithm: str = Field(default_factory=lambda: getenv("JWT_ALGORITHM", "HS256"))
     jwt_expire_minutes: int = Field(
-        default_factory=lambda: int(getenv("JWT_EXPIRE_MINUTES", "60"))
+        default_factory=lambda: int(getenv("JWT_EXPIRE_MINUTES", "1440"))
     )
 
 
@@ -23,4 +23,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

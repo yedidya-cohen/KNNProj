@@ -4,8 +4,8 @@ sqlalchemy
 pydantic
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt<4.1
 scikit-learn
 numpy
 faker
 python-multipart
-

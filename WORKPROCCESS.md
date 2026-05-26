@@ -1,84 +1,130 @@
-# Work Process: Authentication System
+# Work Process
 
-## Branch
+## Branch History
 
-This work was implemented on the `AuthSystem` branch, created from `DBModels` so the authentication layer uses the SQLAlchemy models already defined there.
+- `DBModels`: SQLAlchemy database setup and models.
+- `AuthSystem`: JWT authentication and protected-user dependencies.
+- `coursesEndpoints`: course CRUD endpoints and student grade endpoints.
+- `KNN_Model`: KNN prediction service, prediction schemas/routes, and KNN test.
 
-## Goal
+## Database Layer
 
-The authentication system lets students register, log in with a username and password, receive a JWT bearer token, and call authenticated endpoints such as `/api/v1/auth/me`. Admin-only dependencies are also available for future admin routes.
+The backend uses SQLAlchemy 2.0 with SQLite at `./grade_prediction.db`. The core database objects are defined in `backend/app/database.py`:
 
-## Files Changed
+- `engine`: SQLite engine configured from `settings.database_url`.
+- `SessionLocal`: request/session factory.
+- `Base`: declarative model base.
+- `get_db`: FastAPI dependency that yields a database session.
 
-### `backend/app/core/security.py`
+The app startup lifespan in `backend/app/main.py` imports all models and calls `Base.metadata.create_all(bind=engine)` so missing tables are created automatically.
 
-This file owns low-level authentication primitives:
+## Models
 
-- `hash_password(plain)` hashes a plaintext password using `passlib[bcrypt]`.
-- `verify_password(plain, hashed)` checks a plaintext password against a stored hash.
-- `create_access_token(data)` copies the supplied JWT payload, adds an expiration claim, and signs it with `python-jose`.
-- `decode_token(token)` verifies and decodes JWT tokens with the configured secret and algorithm.
+The main ORM entities live in `backend/app/models`:
 
-JWT settings come from `backend/app/config.py`. The algorithm is `HS256`, and the default expiry is 1440 minutes, which is 24 hours.
+- `User`: username, password hash, role, department, and relationships to grades/predictions/settings.
+- `Course`: course catalog row with code, name, credits, semester, department, and `is_active`.
+- `StudentGrade`: one student grade per `(user_id, course_id)`, with grade constrained to `0-100`.
+- `HistoricalStudent` and `HistoricalGrade`: training data for the KNN model.
+- `Prediction`: saved prediction result with predicted grade, confidence, K value, and neighbor IDs serialized as JSON text.
+- `SystemSetting`: key/value settings such as `knn_k`.
 
-### `backend/app/core/dependencies.py`
+## Seed Data
 
-This file defines reusable FastAPI security dependencies:
+`python -m app.scripts.seed_data` drops and recreates the database after confirmation. It seeds:
 
-- `oauth2_scheme` reads bearer tokens using FastAPI's OAuth2 password bearer helper.
-- `get_current_user(token, db)` decodes the JWT, reads the `sub` claim as the username, loads the matching `User` from the database, and raises `401` when the token is invalid or the user no longer exists.
-- `require_admin(user)` checks `user.role`. It returns the user when the role is `admin` and raises `403` otherwise.
-
-### `backend/app/schemas/user.py`
-
-This file defines the Pydantic schemas used by auth routes:
-
-- `UserCreate`: request body for registration. Includes `username`, `password`, `full_name`, and optional `department`.
-- `UserResponse`: safe user response shape. It exposes identity fields but never exposes `password_hash`.
-- `LoginRequest`: username/password schema for JSON-style login use if needed later.
-- `TokenResponse`: login response with `access_token` and `token_type`.
-
-### `backend/app/services/auth_service.py`
-
-This service contains the auth business logic:
-
-- `register_user(db, user_data)` checks whether the username already exists. If it does, it raises `ValueError`. Otherwise it hashes the password, creates a student `User`, commits it, refreshes it, and returns the created user.
-- `authenticate_user(db, username, password)` loads a user by username and verifies the password. It returns the `User` on success and `None` on failure.
-
-### `backend/app/routers/auth.py`
-
-This router exposes the API endpoints under `/api/v1/auth`:
-
-- `POST /api/v1/auth/register`: accepts a `UserCreate` JSON body and creates a student user.
-- `POST /api/v1/auth/login`: accepts form data fields `username` and `password`, authenticates the user, and returns a JWT bearer token.
-- `GET /api/v1/auth/me`: requires a bearer token and returns the current user.
-
-### `backend/app/main.py`
-
-The auth router is registered with `app.include_router(auth.router)`, so the endpoints become part of the FastAPI application.
-
-### `backend/app/config.py`
-
-The default JWT expiration was changed from 60 minutes to 1440 minutes to meet the 24-hour requirement.
+- 30 computer science courses using Hebrew course names based on Tel-Hai's 2025-2026 CS yearbook.
+- 1000 historical students in `computer_science`.
+- 70-90% course coverage per historical student.
+- Synthetic grades from a per-student talent score plus course-level random noise.
+- Default admin user `admin / admin123`.
+- Default setting `knn_k = 5`.
 
 ## Authentication Flow
 
-1. A client registers with `POST /api/v1/auth/register`.
-2. The router passes the request to `register_user`.
-3. The service checks username uniqueness, hashes the password, stores the user with role `student`, and returns a safe `UserResponse`.
-4. A client logs in with `POST /api/v1/auth/login` using form data.
-5. The router calls `authenticate_user`.
-6. If credentials are valid, `create_access_token({"sub": user.username})` creates a 24-hour JWT.
-7. For protected routes, clients send `Authorization: Bearer <token>`.
-8. `get_current_user` decodes the token, extracts `sub`, loads the user, and returns it to the route.
-9. Admin routes can compose `require_admin` to reject non-admin users with `403`.
+Authentication is implemented with `python-jose` and `passlib[bcrypt]`.
 
-## Important Design Notes
+- `backend/app/core/security.py` hashes and verifies passwords, creates JWTs, and decodes JWTs.
+- JWTs use `HS256` and default to 24 hours via `JWT_EXPIRE_MINUTES=1440`.
+- `backend/app/core/dependencies.py` defines `get_current_user` and `require_admin`.
+- `POST /api/v1/auth/register` creates student users.
+- `POST /api/v1/auth/login` accepts form `username` and `password`, then returns a bearer token.
+- `GET /api/v1/auth/me` returns the authenticated user.
 
-- Password hashes are stored only in `User.password_hash`.
-- API responses never return password hashes.
-- JWT subject (`sub`) is the username because `username` is unique.
-- The default registered user role is always `student`.
-- Admin creation remains handled by the seed script, which creates `admin / admin123`.
-- The router uses form login because FastAPI's OAuth2 password flow and the project requirement specify form fields.
+The JWT `sub` claim stores the username. API responses never expose `password_hash`.
 
+## Course And Grade Flow
+
+Courses are handled by `backend/app/services/course_service.py` and `backend/app/routers/courses.py`.
+
+- `GET /api/v1/courses` lists active courses and supports `department` and `search` filters.
+- `GET /api/v1/courses/{id}` returns one active course.
+- `POST /api/v1/courses` creates a course and requires admin.
+- `PUT /api/v1/courses/{id}` updates a course and requires admin.
+- `DELETE /api/v1/courses/{id}` performs a soft delete by setting `is_active=False`.
+
+Student grades are handled by `backend/app/services/grade_service.py` and `backend/app/routers/grades.py`.
+
+- `GET /api/v1/grades/my` returns the current student's grades.
+- `POST /api/v1/grades/` upserts one grade.
+- `PUT /api/v1/grades/{id}` updates an owned grade and rejects course changes.
+- `DELETE /api/v1/grades/{id}` deletes an owned grade.
+- `POST /api/v1/grades/bulk` upserts multiple grades.
+
+Grade input is validated to `0-100`. Student grade routes reject admin users and enforce ownership.
+
+## KNN Prediction Flow
+
+The KNN system is implemented in `backend/app/services/knn_service.py`.
+
+### Matrix Cache
+
+`build_grade_matrix(db)` builds a matrix shaped `[N_historical_students x N_courses]`. Rows are historical students, columns are courses, and missing historical grades are stored as `np.nan`. It returns:
+
+- the matrix,
+- `student_id_to_row`,
+- `course_id_to_col`.
+
+The matrix is cached in memory after the first build for prediction performance. `rebuild_grade_matrix_cache(db)` clears and rebuilds the cache when fresh historical data is needed.
+
+### Single Prediction
+
+`predict_grade(db, user_id, target_course_id, k=None)`:
+
+1. Reads the cached grade matrix.
+2. Resolves `k` from the argument or `system_settings.knn_k`, defaulting to `5`.
+3. Builds the current user's grade vector from `student_grades`, using `np.nan` for missing courses.
+4. Requires at least 3 known user grades.
+5. Filters historical rows to students who have a grade in the target course.
+6. Removes the target course column from training features.
+7. Uses `SimpleImputer(strategy="mean")` to fill missing values in historical features and the user vector.
+8. Fits `KNeighborsRegressor(weights="distance", metric="euclidean")`.
+9. Predicts the target grade.
+10. Retrieves nearest neighbors with `kneighbors()`.
+11. Computes confidence from neighbor target-grade standard deviation and average overlap with the user's known grades.
+12. Saves a `Prediction` row and returns predicted grade, confidence, K value, and neighbor details.
+
+Neighbor details include historical student ID, average grade, target course grade, and distance.
+
+### Recommendations
+
+`recommend_top_courses(db, user_id, n=3)` predicts every active course the student has not completed, filters out `low` confidence results, sorts by predicted grade descending, and returns the top `n`.
+
+### Model Evaluation
+
+`evaluate_model(db)` rebuilds the matrix, splits historical students 80/20, predicts held-out historical grades using only the training students, and returns MAE, RMSE, sample size, and runtime in milliseconds.
+
+## Prediction API
+
+Prediction routes live in `backend/app/routers/predictions.py`:
+
+- `POST /api/v1/predictions/predict`: student-only single-course prediction.
+- `GET /api/v1/predictions/recommend-top`: student-only top recommendations.
+- `GET /api/v1/predictions/my-history`: student-only saved prediction history.
+- `GET /api/v1/predictions/{id}`: reads one owned prediction.
+
+Prediction schemas live in `backend/app/schemas/prediction.py` and define request/response objects for single predictions, neighbor info, recommendations, model stats, and prediction history.
+
+## Tests
+
+`backend/tests/test_knn.py` contains a happy-path KNN test. It creates a small test database state, inserts historical students and grades, gives a student three completed grades, rebuilds the matrix cache, and verifies that `predict_grade` returns a bounded prediction with two neighbors.

@@ -1,0 +1,2 @@
+"""Course business logic."""
+

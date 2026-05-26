@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models
 from app.database import Base, engine
-from app.routers import auth, courses, grades, predictions
+from app.routers import admin, auth, courses, grades, predictions
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ app.include_router(auth.router)
 app.include_router(courses.router)
 app.include_router(grades.router)
 app.include_router(predictions.router)
+app.include_router(admin.router)
 
 
 @app.get("/")

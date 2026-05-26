@@ -151,12 +151,11 @@ def create_historical_students(session: Session, courses: list[Course]) -> None:
             print(f"Created {student_number} historical students...")
 
 
-def main() -> None:
+def seed_database() -> dict[str, int]:
     Faker.seed(42)
     random.seed(42)
     faker = Faker("he_IL")
 
-    confirm_reset()
     reset_database()
 
     with SessionLocal() as session:
@@ -165,6 +164,21 @@ def main() -> None:
         create_settings(session, admin)
         create_historical_students(session, courses)
         session.commit()
+        from app.services.knn_service import rebuild_grade_matrix_cache
+
+        rebuild_grade_matrix_cache(session)
+        return {
+            "courses": session.query(Course).count(),
+            "historical_students": session.query(HistoricalStudent).count(),
+            "historical_grades": session.query(HistoricalGrade).count(),
+            "users": session.query(User).count(),
+            "settings": session.query(SystemSetting).count(),
+        }
+
+
+def main() -> None:
+    confirm_reset()
+    seed_database()
 
     print("Seed completed successfully.")
 

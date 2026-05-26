@@ -6,6 +6,7 @@
 - `AuthSystem`: JWT authentication and protected-user dependencies.
 - `coursesEndpoints`: course CRUD endpoints and student grade endpoints.
 - `KNN_Model`: KNN prediction service, prediction schemas/routes, and KNN test.
+- `Admin`: admin dashboard, user/historical-data management, seed endpoint, settings, and model stats.
 
 ## Database Layer
 
@@ -124,6 +125,21 @@ Prediction routes live in `backend/app/routers/predictions.py`:
 - `GET /api/v1/predictions/{id}`: reads one owned prediction.
 
 Prediction schemas live in `backend/app/schemas/prediction.py` and define request/response objects for single predictions, neighbor info, recommendations, model stats, and prediction history.
+
+## Admin Flow
+
+Admin endpoints live in `backend/app/routers/admin.py` and use `require_admin`, so every route requires an authenticated user with role `admin`.
+
+- `GET /api/v1/admin/dashboard` returns total users, total predictions, average historical grade, and the most predicted courses.
+- `GET /api/v1/admin/users` returns safe user records without password hashes.
+- `GET /api/v1/admin/historical-students` returns historical-student summaries with grade count and average grade.
+- `POST /api/v1/admin/historical-students` manually adds one historical student and optional grades, then rebuilds the KNN cache.
+- `POST /api/v1/admin/seed` calls the shared `seed_database()` logic from `backend/app/scripts/seed_data.py`, recreating the synthetic database without an interactive prompt.
+- `GET /api/v1/admin/model-stats` calls `evaluate_model(db)` from the KNN service.
+- `GET /api/v1/admin/settings/{key}` reads one system setting.
+- `PUT /api/v1/admin/settings/{key}` creates or updates one setting. For `knn_k`, the router validates that the value is a positive integer.
+
+Admin business logic lives in `backend/app/services/admin_service.py`. The seed script still prompts for confirmation when run from the command line, but exposes `seed_database()` so trusted admin code can reuse the same logic directly. After reseeding, the KNN matrix cache is rebuilt so future predictions use fresh historical rows.
 
 ## Tests
 

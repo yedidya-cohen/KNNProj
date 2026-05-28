@@ -1,16 +1,26 @@
-export default function GradeInput({ label = 'Grade', value, onChange }) {
+import { Form } from 'react-bootstrap';
+
+export default function GradeInput({ value, onChange, disabled, error }) {
   return (
-    <label className="form-label w-100">
-      {label}
-      <input
-        className="form-control"
-        max="100"
-        min="0"
-        onChange={onChange}
+    <div>
+      <Form.Control
         type="number"
+        min={0}
+        max={100}
+        step={1}
         value={value}
+        onChange={onChange}
+        disabled={disabled}
+        isInvalid={!!error}
+        placeholder="0–100"
+        style={{ width: '90px' }}
       />
-    </label>
+      {error && (
+        <Form.Control.Feedback type="invalid" style={{ display: 'block' }}>
+          {error}
+        </Form.Control.Feedback>
+      )}
+    </div>
   );
 }
 

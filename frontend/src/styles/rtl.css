@@ -1,4 +1,41 @@
-[dir="rtl"] {
+/* RTL helpers on top of Bootstrap RTL */
+
+:root {
+  direction: rtl;
+}
+
+/* Hebrew-optimized line height */
+body {
+  line-height: 1.7;
+}
+
+/* Form controls */
+input,
+textarea,
+select {
   text-align: right;
 }
 
+/* Keep icons/badges aligned even in RTL */
+.badge,
+.btn .bi,
+.btn svg {
+  display: inline-flex;
+}
+
+/* Sidebar / list-group items */
+.list-group-item {
+  text-align: right;
+}
+
+/* Table cells */
+th,
+td {
+  text-align: right;
+}
+
+/* Alert close button stays on the left in RTL */
+.alert .btn-close {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}

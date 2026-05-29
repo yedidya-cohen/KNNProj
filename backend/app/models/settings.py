@@ -1,14 +1,23 @@
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 
-class UserSettings(Base):
-    __tablename__ = "user_settings"
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
-    preferred_language: Mapped[str] = mapped_column(String(10), default="he")
-    theme: Mapped[str] = mapped_column(String(20), default="light")
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
 
+    updated_by_user: Mapped["User | None"] = relationship(
+        back_populates="updated_settings",
+    )

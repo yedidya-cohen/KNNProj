@@ -64,10 +64,10 @@ if /I "%~1"=="--seed" (
 )
 
 echo Starting backend on http://localhost:%BACKEND_PORT%
-start "Grade Prediction Backend" cmd /k "pushd "%BACKEND_DIR%" && ".venv\Scripts\python.exe" -m uvicorn app.main:app --reload --host 0.0.0.0 --port %BACKEND_PORT%"
+start "Grade Prediction Backend" /d "%BACKEND_DIR%" cmd /k ".venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port %BACKEND_PORT%"
 
 echo Starting frontend on http://localhost:%FRONTEND_PORT%
-start "Grade Prediction Frontend" cmd /k "pushd "%FRONTEND_DIR%" && npm.cmd run dev -- --host 0.0.0.0 --port %FRONTEND_PORT%"
+start "Grade Prediction Frontend" /d "%FRONTEND_DIR%" cmd /k "npm.cmd run dev -- --host 0.0.0.0 --port %FRONTEND_PORT%"
 
 echo.
 echo Project is starting.

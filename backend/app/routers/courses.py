@@ -22,12 +22,14 @@ router = APIRouter(prefix="/api/v1/courses", tags=["courses"])
 
 @router.get("", response_model=list[CourseResponse])
 def list_courses(
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     department: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
+    include_inactive: Annotated[bool, Query()] = False,
 ) -> list:
-    return get_courses(db, department=department, search=search)
+    can_see_inactive = include_inactive and current_user.role.value == "admin"
+    return get_courses(db, department=department, search=search, include_inactive=can_see_inactive)
 
 
 @router.get("/{course_id}", response_model=CourseResponse)

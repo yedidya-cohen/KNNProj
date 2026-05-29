@@ -36,9 +36,13 @@ export default function LoginPage() {
 
       login(token, userData);
       navigate(userData.role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true });
-    } catch {
+    } catch (err) {
       localStorage.removeItem('token');
-      setError('שם משתמש או סיסמה שגויים');
+      if (!err.response) {
+        setError('שגיאת חיבור — ודא שהשרת פועל על פורט 8000');
+      } else {
+        setError('שם משתמש או סיסמה שגויים');
+      }
     } finally {
       setLoading(false);
     }

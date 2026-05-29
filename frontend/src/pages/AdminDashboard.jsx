@@ -72,13 +72,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const [dashRes, statsRes, kRes] = await Promise.allSettled([
+      const [dashRes, kRes] = await Promise.allSettled([
         getDashboard(),
-        getModelStats(),
         getKnnK(),
       ]);
       if (dashRes.status === 'fulfilled') setDashData(dashRes.value.data);
-      if (statsRes.status === 'fulfilled') setModelStats(statsRes.value.data);
       if (kRes.status === 'fulfilled') {
         const d = kRes.value.data;
         const k = d?.value ?? d?.knn_k ?? d;
@@ -87,6 +85,12 @@ export default function AdminDashboard() {
       setLoading(false);
     }
     load();
+  }, []);
+
+  useEffect(() => {
+    getModelStats()
+      .then(({ data }) => setModelStats(data))
+      .catch(() => {});
   }, []);
 
   async function handleRerunStats() {
@@ -142,7 +146,7 @@ export default function AdminDashboard() {
   }
 
   const courses = dashData?.most_predicted_courses ?? [];
-  const maxCount = courses.length > 0 ? Math.max(...courses.map((c) => c.count)) : 0;
+  const maxCount = courses.length > 0 ? Math.max(...courses.map((c) => c.prediction_count)) : 0;
 
   return (
     <>
@@ -290,9 +294,9 @@ export default function AdminDashboard() {
               <h2 className="h6 fw-semibold mb-4">קורסים מנובאים ביותר</h2>
               {courses.map((c) => (
                 <CourseBar
-                  key={c.course_name}
-                  name={c.course_name}
-                  count={c.count}
+                  key={c.name}
+                  name={c.name}
+                  count={c.prediction_count}
                   maxCount={maxCount}
                 />
               ))}

@@ -106,11 +106,24 @@ def recommend_top_courses(db: Session, user_id: int, n: int = 3) -> list[dict]:
             .order_by(Course.semester_recommended, Course.code)
         )
     )
+
+    matrix, student_id_to_row, course_id_to_col = build_grade_matrix(db)
+    k_value = _resolve_k(db, None)
+    user_vector = _build_user_vector(db, user_id, course_id_to_col)
+
     recommendations: list[dict] = []
 
     for course_id in candidate_course_ids:
         try:
-            prediction = predict_grade(db, user_id, course_id)
+            prediction = _predict_from_vector(
+                matrix=matrix,
+                student_id_to_row=student_id_to_row,
+                course_id_to_col=course_id_to_col,
+                user_vector=user_vector,
+                target_course_id=course_id,
+                k=k_value,
+                save_prediction=False,
+            )
         except ValueError:
             continue
 

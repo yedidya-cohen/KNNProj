@@ -3,16 +3,41 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 from app import models
-from app.database import Base, engine
+from app.core.security import hash_password
+from app.database import Base, SessionLocal, engine
+from app.models.settings import SystemSetting
+from app.models.user import User, UserRole
 from app.routers import admin, auth, courses, grades, predictions
+
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
+
+
+def _ensure_defaults() -> None:
+    with SessionLocal() as db:
+        if db.scalar(select(User).where(User.username == ADMIN_USERNAME)) is None:
+            db.add(User(
+                username=ADMIN_USERNAME,
+                password_hash=hash_password(ADMIN_PASSWORD),
+                full_name="System Administrator",
+                role=UserRole.ADMIN,
+                department="computer_science",
+            ))
+            db.flush()
+        if db.get(SystemSetting, "knn_k") is None:
+            admin_user = db.scalar(select(User).where(User.username == ADMIN_USERNAME))
+            db.add(SystemSetting(key="knn_k", value="5", updated_by=admin_user.id if admin_user else None))
+        db.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _ = models
     Base.metadata.create_all(bind=engine)
+    _ensure_defaults()
     yield
 
 

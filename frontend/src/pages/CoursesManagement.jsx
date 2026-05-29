@@ -182,7 +182,7 @@ export default function CoursesManagement() {
   useEffect(() => {
     async function load() {
       try {
-        const { data } = await getCourses();
+        const { data } = await getCourses({ include_inactive: true });
         setCourses(Array.isArray(data) ? data : []);
       } catch {
         addToast('שגיאה בטעינת הקורסים', 'danger');
@@ -231,7 +231,6 @@ export default function CoursesManagement() {
     setDeleting(true);
     try {
       await deleteCourse(deleteTarget.id);
-      // Soft delete: reflect in table as inactive
       setCourses((prev) =>
         prev.map((c) => (c.id === deleteTarget.id ? { ...c, is_active: false } : c)),
       );
@@ -241,6 +240,24 @@ export default function CoursesManagement() {
       addToast('שגיאה במחיקת הקורס', 'danger');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleReactivate(course) {
+    try {
+      const { data } = await updateCourse(course.id, {
+        code: course.code,
+        name: course.name,
+        description: course.description ?? '',
+        credits: course.credits,
+        semester_recommended: course.semester_recommended,
+        department: course.department,
+        is_active: true,
+      });
+      setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, ...data } : c)));
+      addToast('הקורס הופעל מחדש בהצלחה');
+    } catch {
+      addToast('שגיאה בהפעלת הקורס', 'danger');
     }
   }
 
@@ -318,14 +335,23 @@ export default function CoursesManagement() {
                           >
                             ערוך
                           </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            onClick={() => setDeleteTarget(course)}
-                            disabled={!active}
-                          >
-                            מחק
-                          </Button>
+                          {active ? (
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => setDeleteTarget(course)}
+                            >
+                              השבת
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline-success"
+                              size="sm"
+                              onClick={() => handleReactivate(course)}
+                            >
+                              הפעל
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -1,7 +1,7 @@
 import apiClient from './client';
 
-export function getCourses() {
-  return apiClient.get('/courses');
+export function getCourses(params = {}) {
+  return apiClient.get('/courses', { params });
 }
 
 export function getCourse(id) {

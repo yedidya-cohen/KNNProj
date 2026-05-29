@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Form, Spinner, Table, Toast, ToastContainer } from 'react-bootstrap';
+import { Alert, Button, Form, Modal, Spinner, Table, Toast, ToastContainer } from 'react-bootstrap';
 import { getCourses } from '../api/courses';
-import { bulkSaveGrades, getMyGrades } from '../api/grades';
+import { bulkSaveGrades, createGrade, getMyGrades } from '../api/grades';
 import GradeInput from '../components/GradeInput';
 
 function validateGrade(grade) {
@@ -19,6 +19,12 @@ export default function GradesPage() {
   const [saving, setSaving] = useState(false);
   const [pageError, setPageError] = useState('');
   const [showToast, setShowToast] = useState(false);
+
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addCourseId, setAddCourseId] = useState('');
+  const [addGrade, setAddGrade] = useState('');
+  const [addError, setAddError] = useState('');
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -114,6 +120,31 @@ export default function GradesPage() {
     }
   }
 
+  async function handleAddGrade() {
+    const courseId = Number(addCourseId);
+    const grade = Number(addGrade);
+    if (!courseId) { setAddError('יש לבחור קורס'); return; }
+    const err = validateGrade(addGrade);
+    if (err) { setAddError(err); return; }
+    setAddError('');
+    setAddSaving(true);
+    try {
+      await createGrade({ course_id: courseId, grade });
+      setRows((prev) => ({
+        ...prev,
+        [courseId]: { checked: true, grade: String(grade), error: '' },
+      }));
+      setAddModalOpen(false);
+      setAddCourseId('');
+      setAddGrade('');
+      setShowToast(true);
+    } catch {
+      setAddError('שגיאה בהוספת הציון. נסה שנית.');
+    } finally {
+      setAddSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="container py-5 text-center">
@@ -127,7 +158,12 @@ export default function GradesPage() {
   return (
     <>
       <main className="container py-4" style={{ maxWidth: '780px' }}>
-        <h1 className="h4 fw-semibold mb-1">הזנת היסטוריית ציונים</h1>
+        <div className="d-flex align-items-center justify-content-between mb-1">
+          <h1 className="h4 fw-semibold mb-0">הזנת היסטוריית ציונים</h1>
+          <Button variant="primary" size="sm" onClick={() => { setAddModalOpen(true); setAddCourseId(''); setAddGrade(''); setAddError(''); }}>
+            + הוסף קורס חדש
+          </Button>
+        </div>
         <p className="text-muted mb-3 small">סמן את הקורסים שהשלמת והזן את הציון בכל אחד</p>
 
         {pageError && (
@@ -224,6 +260,50 @@ export default function GradesPage() {
           <Toast.Body className="text-white fw-semibold">הציונים נשמרו בהצלחה ✓</Toast.Body>
         </Toast>
       </ToastContainer>
+
+      <Modal show={addModalOpen} onHide={() => !addSaving && setAddModalOpen(false)} centered>
+        <Modal.Header closeButton={!addSaving}>
+          <Modal.Title className="fs-6 fw-semibold">הוספת ציון לקורס</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {addError && <Alert variant="danger" className="mb-3">{addError}</Alert>}
+          <Form.Group className="mb-3" controlId="addCourseSelect">
+            <Form.Label className="small fw-medium">קורס</Form.Label>
+            <Form.Select
+              value={addCourseId}
+              onChange={(e) => { setAddCourseId(e.target.value); setAddError(''); }}
+            >
+              <option value="">-- בחר קורס --</option>
+              {courses
+                .filter((c) => !rows[c.id]?.checked)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group controlId="addGradeInput">
+            <Form.Label className="small fw-medium">ציון (0–100)</Form.Label>
+            <Form.Control
+              type="number"
+              min={0}
+              max={100}
+              value={addGrade}
+              onChange={(e) => { setAddGrade(e.target.value); setAddError(''); }}
+              placeholder="לדוגמה: 85"
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setAddModalOpen(false)} disabled={addSaving}>
+            ביטול
+          </Button>
+          <Button variant="primary" onClick={handleAddGrade} disabled={addSaving}>
+            {addSaving
+              ? <><Spinner as="span" size="sm" animation="border" className="me-2" />שומר…</>
+              : 'הוסף ציון'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }

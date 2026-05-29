@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [isLoading, setIsLoading] = useState(!!localStorage.getItem('token'));
 
   const login = useCallback((newToken, newUser) => {
     localStorage.setItem('token', newToken);
@@ -21,12 +22,17 @@ export function AuthProvider({ children }) {
 
   const loadUser = useCallback(async () => {
     const savedToken = localStorage.getItem('token');
-    if (!savedToken) return;
+    if (!savedToken) {
+      setIsLoading(false);
+      return;
+    }
     try {
       const { data } = await getMe();
       setUser(data);
     } catch {
       logout();
+    } finally {
+      setIsLoading(false);
     }
   }, [logout]);
 
@@ -36,8 +42,8 @@ export function AuthProvider({ children }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = useMemo(
-    () => ({ user, token, login, logout, loadUser }),
-    [user, token, login, logout, loadUser],
+    () => ({ user, token, isLoading, login, logout, loadUser }),
+    [user, token, isLoading, login, logout, loadUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

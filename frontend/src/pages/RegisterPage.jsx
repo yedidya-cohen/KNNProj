@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Card, Container, Form, Spinner } from 'react-boot
 import { Link, useNavigate } from 'react-router-dom';
 import { getMe, login as apiLogin, register as apiRegister } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const EMPTY_ERRORS = { fullName: '', username: '', password: '', confirmPassword: '' };
 
@@ -54,6 +55,7 @@ export default function RegisterPage() {
   }
 
   async function handleRegister() {
+    if (loading) return;
     if (!validate()) return;
 
     setServerError('');
@@ -69,10 +71,12 @@ export default function RegisterPage() {
       login(token, userData);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      if (err.response?.status === 409) {
+      localStorage.removeItem('token');
+      const detail = String(err.response?.data?.detail ?? '').toLowerCase();
+      if (err.response?.status === 409 || detail.includes('username already exists')) {
         setServerError('שם המשתמש כבר קיים');
       } else {
-        setServerError('אירעה שגיאה בהרשמה, נסה שנית');
+        setServerError(getApiErrorMessage(err, 'הרשמה נכשלה. בדוק את הפרטים ונסה שנית.'));
       }
     } finally {
       setLoading(false);
@@ -174,6 +178,7 @@ export default function RegisterPage() {
 
           <Button
             variant="primary"
+            type="button"
             className="w-100"
             onClick={handleRegister}
             disabled={loading}

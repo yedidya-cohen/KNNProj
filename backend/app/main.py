@@ -22,7 +22,7 @@ def _ensure_defaults() -> None:
             db.add(User(
                 username=ADMIN_USERNAME,
                 password_hash=hash_password(ADMIN_PASSWORD),
-                full_name="System Administrator",
+                full_name="Admin",
                 role=UserRole.ADMIN,
                 department="computer_science",
             ))
@@ -49,7 +49,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

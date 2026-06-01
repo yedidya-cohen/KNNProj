@@ -3,6 +3,7 @@ import { Alert, Button, Card, Container, Form, Spinner } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMe, login as apiLogin } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -22,6 +23,7 @@ export default function LoginPage() {
   }
 
   async function handleLogin() {
+    if (loading) return;
     if (!validate()) return;
 
     setError('');
@@ -38,10 +40,10 @@ export default function LoginPage() {
       navigate(userData.role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true });
     } catch (err) {
       localStorage.removeItem('token');
-      if (!err.response) {
-        setError('שגיאת חיבור — ודא שהשרת פועל על פורט 8000');
-      } else {
+      if (err.response?.status === 401) {
         setError('שם משתמש או סיסמה שגויים');
+      } else {
+        setError(getApiErrorMessage(err, 'התחברות נכשלה. נסה שנית.'));
       }
     } finally {
       setLoading(false);
@@ -98,6 +100,7 @@ export default function LoginPage() {
 
           <Button
             variant="primary"
+            type="button"
             className="w-100"
             onClick={handleLogin}
             disabled={loading}

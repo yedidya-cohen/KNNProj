@@ -103,7 +103,7 @@ def create_admin_user(session: Session, faker: Faker) -> User:
     admin = User(
         username="admin",
         password_hash=hash_password("admin123"),
-        full_name=faker.name(),
+        full_name="Admin",
         role=UserRole.ADMIN,
         department=DEPARTMENT,
     )

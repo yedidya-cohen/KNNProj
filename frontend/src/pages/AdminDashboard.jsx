@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   Button, Card, Col, Form, Modal, Row, Spinner, Toast, ToastContainer,
+  Table,
 } from 'react-bootstrap';
 import { BarChart2, TrendingUp, Users } from 'lucide-react';
-import { getDashboard, getKnnK, getModelStats, runSeed, updateKnnK } from '../api/admin';
+import { getDashboard, getKnnK, getModelStats, getUsers, runSeed, updateKnnK } from '../api/admin';
 import StatCard from '../components/StatCard';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ function CourseBar({ name, count, maxCount }) {
 export default function AdminDashboard() {
   const [dashData, setDashData] = useState(null);
   const [modelStats, setModelStats] = useState(null);
+  const [users, setUsers] = useState([]);
   const [kInput, setKInput] = useState('');
   const [kError, setKError] = useState('');
 
@@ -81,6 +83,12 @@ export default function AdminDashboard() {
         const d = kRes.value.data;
         const k = d?.value ?? d?.knn_k ?? d;
         setKInput(String(k ?? ''));
+      }
+      try {
+        const { data } = await getUsers();
+        setUsers(Array.isArray(data) ? data : []);
+      } catch {
+        addToast('שגיאה בטעינת משתמשי המערכת', 'danger');
       }
       setLoading(false);
     }
@@ -303,6 +311,48 @@ export default function AdminDashboard() {
             </Card.Body>
           </Card>
         )}
+
+        <Card className="border-0 shadow-sm mt-4">
+          <Card.Body className="p-4">
+            <h2 className="h6 fw-semibold mb-3">משתמשים במערכת</h2>
+            <div className="border rounded">
+              <Table hover responsive className="mb-0 align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>שם משתמש</th>
+                    <th>שם מלא</th>
+                    <th>תפקיד</th>
+                    <th>מחלקה</th>
+                    <th>נוצר בתאריך</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center text-muted py-4">
+                        אין משתמשים להצגה
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((systemUser) => (
+                      <tr key={systemUser.id}>
+                        <td className="fw-medium">{systemUser.username}</td>
+                        <td>{systemUser.full_name}</td>
+                        <td>{systemUser.role === 'admin' ? 'מנהל' : 'סטודנט'}</td>
+                        <td>{systemUser.department}</td>
+                        <td>
+                          {systemUser.created_at
+                            ? new Date(systemUser.created_at).toLocaleDateString('he-IL')
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </div>
+          </Card.Body>
+        </Card>
       </main>
 
       {/* ── Seed confirmation modal ── */}

@@ -137,9 +137,9 @@ export default function AdminDashboard() {
     try {
       await runSeed();
       setConfirmSeed(false);
-      addToast('ה-Seed הורץ בהצלחה');
+      addToast('נתוני האימון רועננו בהצלחה');
     } catch {
-      addToast('שגיאה בהרצת ה-Seed', 'danger');
+      addToast('שגיאה ברענון נתוני האימון', 'danger');
     } finally {
       setSeeding(false);
     }
@@ -281,14 +281,14 @@ export default function AdminDashboard() {
                 <hr className="my-3" />
 
                 <p className="text-muted small mb-2">
-                  איפוס נתוני ה-Seed: יוחלפו כל הנתונים לדוגמה
+                  רענון נתוני האימון: משתמשים רשומים, ציונים ותחזיות יישמרו
                 </p>
                 <Button
                   variant="outline-danger"
                   size="sm"
                   onClick={() => setConfirmSeed(true)}
                 >
-                  הרץ Seed מחדש
+                  רענן נתוני אימון
                 </Button>
               </Card.Body>
             </Card>
@@ -358,11 +358,11 @@ export default function AdminDashboard() {
       {/* ── Seed confirmation modal ── */}
       <Modal show={confirmSeed} onHide={() => !seeding && setConfirmSeed(false)} centered>
         <Modal.Header closeButton={!seeding}>
-          <Modal.Title className="fs-6 fw-semibold">אישור הרצת Seed</Modal.Title>
+          <Modal.Title className="fs-6 fw-semibold">אישור רענון נתוני אימון</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p className="mb-0">
-            פעולה זו תמחק ותייצר מחדש את כל נתוני ה-Seed של המערכת. לא ניתן לבטל פעולה זו. האם להמשיך?
+            פעולה זו תרענן רק את הקורסים ונתוני הסטודנטים ההיסטוריים שסומנו כנתוני Seed. משתמשים רשומים, ציונים אישיים, תחזיות והגדרות מערכת יישמרו. האם להמשיך?
           </p>
         </Modal.Body>
         <Modal.Footer>
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
                 <Spinner as="span" size="sm" animation="border" className="me-2" />
                 מריץ…
               </>
-            ) : 'אישור — הרץ Seed'}
+            ) : 'אישור — רענן נתונים'}
           </Button>
         </Modal.Footer>
       </Modal>

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -13,6 +13,7 @@ class HistoricalStudent(Base):
     graduation_year: Mapped[int] = mapped_column()
     department: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    is_seed_data: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     grades: Mapped[list["HistoricalGrade"]] = relationship(
         back_populates="historical_student",

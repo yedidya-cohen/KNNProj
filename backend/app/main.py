@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app import models
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine
+from app.database import Base, SessionLocal, engine, ensure_seed_marker_columns
 from app.models.settings import SystemSetting
 from app.models.user import User, UserRole
 from app.routers import admin, auth, courses, grades, predictions
@@ -37,6 +37,7 @@ def _ensure_defaults() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _ = models
     Base.metadata.create_all(bind=engine)
+    ensure_seed_marker_columns()
     _ensure_defaults()
     yield
 

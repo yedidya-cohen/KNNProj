@@ -11,6 +11,17 @@ import PredictionPage from './pages/PredictionPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboard from './pages/StudentDashboard';
+import { useAuth } from './context/AuthContext';
+
+const roleDashboard = {
+  admin: '/admin/dashboard',
+  student: '/dashboard',
+};
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={roleDashboard[user?.role] ?? '/login'} replace />;
+}
 
 export default function App() {
   return (
@@ -24,23 +35,23 @@ export default function App() {
         {/* Student */}
         <Route
           path="/dashboard"
-          element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>}
+          element={<ProtectedRoute requiredRole="student"><StudentDashboard /></ProtectedRoute>}
         />
         <Route
           path="/grades"
-          element={<ProtectedRoute><GradesPage /></ProtectedRoute>}
+          element={<ProtectedRoute requiredRole="student"><GradesPage /></ProtectedRoute>}
         />
         <Route
           path="/predict"
-          element={<ProtectedRoute><PredictionPage /></ProtectedRoute>}
+          element={<ProtectedRoute requiredRole="student"><PredictionPage /></ProtectedRoute>}
         />
         <Route
           path="/recommendations"
-          element={<ProtectedRoute><RecommendationsPage /></ProtectedRoute>}
+          element={<ProtectedRoute requiredRole="student"><RecommendationsPage /></ProtectedRoute>}
         />
         <Route
           path="/predictions/history"
-          element={<ProtectedRoute><PredictionHistoryPage /></ProtectedRoute>}
+          element={<ProtectedRoute requiredRole="student"><PredictionHistoryPage /></ProtectedRoute>}
         />
 
         {/* Admin */}
@@ -57,8 +68,8 @@ export default function App() {
           element={<ProtectedRoute requiredRole="admin"><HistoricalDataPage /></ProtectedRoute>}
         />
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<ProtectedRoute><HomeRedirect /></ProtectedRoute>} />
+        <Route path="*" element={<ProtectedRoute><HomeRedirect /></ProtectedRoute>} />
       </Routes>
     </>
   );

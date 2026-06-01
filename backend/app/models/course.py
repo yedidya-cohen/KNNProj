@@ -15,6 +15,7 @@ class Course(Base):
     semester_recommended: Mapped[int] = mapped_column()
     department: Mapped[str] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_seed_data: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     student_grades: Mapped[list["StudentGrade"]] = relationship(
         back_populates="course",

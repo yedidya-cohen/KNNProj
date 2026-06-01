@@ -2,11 +2,12 @@ import random
 from dataclasses import dataclass
 
 from faker import Faker
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app import models
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine
+from app.database import Base, SessionLocal, engine, ensure_seed_marker_columns
 from app.models.course import Course
 from app.models.historical import HistoricalGrade, HistoricalStudent
 from app.models.settings import SystemSetting
@@ -64,7 +65,8 @@ def clamp_grade(value: float) -> int:
 
 def confirm_reset() -> None:
     answer = input(
-        "This will DROP and recreate all database tables in ./grade_prediction.db. "
+        "This will refresh seeded courses and seeded historical students in ./grade_prediction.db. "
+        "Registered users, their grades, predictions, and settings will be preserved. "
         "Type 'yes' to continue: "
     )
 
@@ -72,34 +74,53 @@ def confirm_reset() -> None:
         raise SystemExit("Seed cancelled. Database was not changed.")
 
 
-def reset_database() -> None:
-    _ = models
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+def reset_seed_data(session: Session) -> None:
+    seeded_student_ids = select(HistoricalStudent.id).where(
+        HistoricalStudent.is_seed_data.is_(True)
+    )
+    session.execute(
+        delete(HistoricalGrade).where(
+            HistoricalGrade.historical_student_id.in_(seeded_student_ids)
+        ).execution_options(synchronize_session=False)
+    )
+    session.execute(
+        delete(HistoricalStudent)
+        .where(HistoricalStudent.is_seed_data.is_(True))
+        .execution_options(synchronize_session=False)
+    )
+    session.flush()
 
 
 def create_courses(session: Session) -> list[Course]:
     courses: list[Course] = []
 
     for index, course_seed in enumerate(COURSES, start=101):
-        course = Course(
-            code=f"CS{index}",
-            name=course_seed.name,
-            description=f"קורס סינתטי המבוסס על תוכנית מדעי המחשב: {course_seed.name}",
-            credits=course_seed.credits,
-            semester_recommended=course_seed.semester,
-            department=DEPARTMENT,
-            is_active=True,
-        )
-        session.add(course)
+        code = f"CS{index}"
+        course = session.scalar(select(Course).where(Course.code == code))
+
+        if course is None:
+            course = Course(code=code)
+            session.add(course)
+
+        course.name = course_seed.name
+        course.description = f"קורס סינתטי המבוסס על תוכנית מדעי המחשב: {course_seed.name}"
+        course.credits = course_seed.credits
+        course.semester_recommended = course_seed.semester
+        course.department = DEPARTMENT
+        course.is_active = True
+        course.is_seed_data = True
         courses.append(course)
 
     session.flush()
-    print(f"Created {len(courses)} courses.")
+    print(f"Upserted {len(courses)} seeded courses.")
     return courses
 
 
-def create_admin_user(session: Session, faker: Faker) -> User:
+def create_admin_user(session: Session) -> User:
+    existing_admin = session.scalar(select(User).where(User.username == "admin"))
+    if existing_admin is not None:
+        return existing_admin
+
     admin = User(
         username="admin",
         password_hash=hash_password("admin123"),
@@ -114,14 +135,15 @@ def create_admin_user(session: Session, faker: Faker) -> User:
 
 
 def create_settings(session: Session, admin: User) -> None:
-    session.add(
-        SystemSetting(
-            key="knn_k",
-            value="5",
-            updated_by=admin.id,
+    if session.get(SystemSetting, "knn_k") is None:
+        session.add(
+            SystemSetting(
+                key="knn_k",
+                value="5",
+                updated_by=admin.id,
+            )
         )
-    )
-    print('Created default system setting: knn_k="5"')
+        print('Created default system setting: knn_k="5"')
 
 
 def create_historical_students(session: Session, courses: list[Course]) -> None:
@@ -135,6 +157,7 @@ def create_historical_students(session: Session, courses: list[Course]) -> None:
         student = HistoricalStudent(
             graduation_year=random.randint(2020, 2026),
             department=DEPARTMENT,
+            is_seed_data=True,
         )
 
         student.grades = [
@@ -152,15 +175,16 @@ def create_historical_students(session: Session, courses: list[Course]) -> None:
 
 
 def seed_database() -> dict[str, int]:
+    _ = models
     Faker.seed(42)
     random.seed(42)
-    faker = Faker("he_IL")
-
-    reset_database()
+    Base.metadata.create_all(bind=engine)
+    ensure_seed_marker_columns()
 
     with SessionLocal() as session:
+        reset_seed_data(session)
         courses = create_courses(session)
-        admin = create_admin_user(session, faker)
+        admin = create_admin_user(session)
         create_settings(session, admin)
         create_historical_students(session, courses)
         session.commit()
@@ -171,6 +195,11 @@ def seed_database() -> dict[str, int]:
             "courses": session.query(Course).count(),
             "historical_students": session.query(HistoricalStudent).count(),
             "historical_grades": session.query(HistoricalGrade).count(),
+            "seeded_historical_students": session.scalar(
+                select(func.count(HistoricalStudent.id)).where(
+                    HistoricalStudent.is_seed_data.is_(True)
+                )
+            ) or 0,
             "users": session.query(User).count(),
             "settings": session.query(SystemSetting).count(),
         }

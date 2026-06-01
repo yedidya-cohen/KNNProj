@@ -18,11 +18,15 @@ function validate(form) {
   const errs = {};
   if (!form.code.trim()) errs.code = 'קוד קורס הוא שדה חובה';
   if (!form.name.trim()) errs.name = 'שם הקורס הוא שדה חובה';
-  if (form.credits !== '') {
+  if (form.credits === '') {
+    errs.credits = 'נקודות זכות הן שדה חובה';
+  } else {
     const n = Number(form.credits);
     if (isNaN(n) || n <= 0) errs.credits = 'נקודות זכות חייבות להיות מספר חיובי';
   }
-  if (form.semester_recommended !== '') {
+  if (form.semester_recommended === '') {
+    errs.semester_recommended = 'סמסטר מומלץ הוא שדה חובה';
+  } else {
     const s = parseInt(form.semester_recommended, 10);
     if (isNaN(s) || s < 1 || s > 8) errs.semester_recommended = 'סמסטר מומלץ חייב להיות בין 1 ל-8';
   }
@@ -76,8 +80,8 @@ function CourseFormModal({ show, onHide, course, onSaved }) {
       code: form.code.trim(),
       name: form.name.trim(),
       ...(form.description.trim() && { description: form.description.trim() }),
-      ...(form.credits !== '' && { credits: Number(form.credits) }),
-      ...(form.semester_recommended !== '' && { semester_recommended: parseInt(form.semester_recommended, 10) }),
+      credits: Number(form.credits),
+      semester_recommended: parseInt(form.semester_recommended, 10),
     };
 
     setSaving(true);

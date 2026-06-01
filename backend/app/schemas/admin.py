@@ -67,5 +67,6 @@ class SeedResponse(BaseModel):
     courses: int
     historical_students: int
     historical_grades: int
+    seeded_historical_students: int
     users: int
     settings: int

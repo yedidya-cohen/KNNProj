@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function Navbar() {
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
+  const homePath = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard';
 
   function handleLogout() {
     logout();
@@ -14,7 +15,7 @@ export default function Navbar() {
   return (
     <BSNavbar bg="primary" variant="dark" expand="lg">
       <Container>
-        <BSNavbar.Brand as={Link} to="/">מערכת חיזוי ציונים</BSNavbar.Brand>
+        <BSNavbar.Brand as={Link} to={token ? homePath : '/login'}>מערכת חיזוי ציונים</BSNavbar.Brand>
         <BSNavbar.Toggle aria-controls="main-nav" />
         <BSNavbar.Collapse id="main-nav">
           {token && (

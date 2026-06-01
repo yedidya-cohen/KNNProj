@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   Button, Card, Col, Form, Modal, Row, Spinner, Toast, ToastContainer,
+  Table,
 } from 'react-bootstrap';
 import { BarChart2, TrendingUp, Users } from 'lucide-react';
-import { getDashboard, getKnnK, getModelStats, runSeed, updateKnnK } from '../api/admin';
+import { getDashboard, getKnnK, getModelStats, getUsers, runSeed, updateKnnK } from '../api/admin';
 import StatCard from '../components/StatCard';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ function CourseBar({ name, count, maxCount }) {
 export default function AdminDashboard() {
   const [dashData, setDashData] = useState(null);
   const [modelStats, setModelStats] = useState(null);
+  const [users, setUsers] = useState([]);
   const [kInput, setKInput] = useState('');
   const [kError, setKError] = useState('');
 
@@ -81,6 +83,12 @@ export default function AdminDashboard() {
         const d = kRes.value.data;
         const k = d?.value ?? d?.knn_k ?? d;
         setKInput(String(k ?? ''));
+      }
+      try {
+        const { data } = await getUsers();
+        setUsers(Array.isArray(data) ? data : []);
+      } catch {
+        addToast('שגיאה בטעינת משתמשי המערכת', 'danger');
       }
       setLoading(false);
     }
@@ -129,9 +137,9 @@ export default function AdminDashboard() {
     try {
       await runSeed();
       setConfirmSeed(false);
-      addToast('ה-Seed הורץ בהצלחה');
+      addToast('נתוני האימון רועננו בהצלחה');
     } catch {
-      addToast('שגיאה בהרצת ה-Seed', 'danger');
+      addToast('שגיאה ברענון נתוני האימון', 'danger');
     } finally {
       setSeeding(false);
     }
@@ -273,14 +281,14 @@ export default function AdminDashboard() {
                 <hr className="my-3" />
 
                 <p className="text-muted small mb-2">
-                  איפוס נתוני ה-Seed: יוחלפו כל הנתונים לדוגמה
+                  רענון נתוני האימון: משתמשים רשומים, ציונים ותחזיות יישמרו
                 </p>
                 <Button
                   variant="outline-danger"
                   size="sm"
                   onClick={() => setConfirmSeed(true)}
                 >
-                  הרץ Seed מחדש
+                  רענן נתוני אימון
                 </Button>
               </Card.Body>
             </Card>
@@ -303,16 +311,58 @@ export default function AdminDashboard() {
             </Card.Body>
           </Card>
         )}
+
+        <Card className="border-0 shadow-sm mt-4">
+          <Card.Body className="p-4">
+            <h2 className="h6 fw-semibold mb-3">משתמשים במערכת</h2>
+            <div className="border rounded">
+              <Table hover responsive className="mb-0 align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>שם משתמש</th>
+                    <th>שם מלא</th>
+                    <th>תפקיד</th>
+                    <th>מחלקה</th>
+                    <th>נוצר בתאריך</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center text-muted py-4">
+                        אין משתמשים להצגה
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((systemUser) => (
+                      <tr key={systemUser.id}>
+                        <td className="fw-medium">{systemUser.username}</td>
+                        <td>{systemUser.full_name}</td>
+                        <td>{systemUser.role === 'admin' ? 'מנהל' : 'סטודנט'}</td>
+                        <td>{systemUser.department}</td>
+                        <td>
+                          {systemUser.created_at
+                            ? new Date(systemUser.created_at).toLocaleDateString('he-IL')
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </div>
+          </Card.Body>
+        </Card>
       </main>
 
       {/* ── Seed confirmation modal ── */}
       <Modal show={confirmSeed} onHide={() => !seeding && setConfirmSeed(false)} centered>
         <Modal.Header closeButton={!seeding}>
-          <Modal.Title className="fs-6 fw-semibold">אישור הרצת Seed</Modal.Title>
+          <Modal.Title className="fs-6 fw-semibold">אישור רענון נתוני אימון</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p className="mb-0">
-            פעולה זו תמחק ותייצר מחדש את כל נתוני ה-Seed של המערכת. לא ניתן לבטל פעולה זו. האם להמשיך?
+            פעולה זו תרענן רק את הקורסים ונתוני הסטודנטים ההיסטוריים שסומנו כנתוני Seed. משתמשים רשומים, ציונים אישיים, תחזיות והגדרות מערכת יישמרו. האם להמשיך?
           </p>
         </Modal.Body>
         <Modal.Footer>
@@ -325,7 +375,7 @@ export default function AdminDashboard() {
                 <Spinner as="span" size="sm" animation="border" className="me-2" />
                 מריץ…
               </>
-            ) : 'אישור — הרץ Seed'}
+            ) : 'אישור — רענן נתונים'}
           </Button>
         </Modal.Footer>
       </Modal>

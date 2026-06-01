@@ -22,3 +22,4 @@ class CourseResponse(BaseModel):
     semester_recommended: int
     department: str
     is_active: bool
+    is_seed_data: bool

@@ -159,43 +159,47 @@ def evaluate_model(db: Session) -> dict:
     test_student_ids = shuffled_student_ids[split_index:].tolist()
     train_student_id_list = list(train_student_ids)
     train_rows = [student_id_to_row[student_id] for student_id in train_student_id_list]
+    test_rows = [student_id_to_row[student_id] for student_id in test_student_ids]
     train_matrix = matrix[train_rows, :]
-    train_student_id_to_row = {
-        student_id: row for row, student_id in enumerate(train_student_id_list)
-    }
+    test_matrix = matrix[test_rows, :]
     actual_values: list[float] = []
     predicted_values: list[float] = []
     k_value = _resolve_k(db, None)
 
-    for test_student_id in test_student_ids:
-        test_row = student_id_to_row[test_student_id]
-        test_vector = matrix[test_row].copy()
+    for target_col in course_id_to_col.values():
+        train_has_target = ~np.isnan(train_matrix[:, target_col])
+        if not np.any(train_has_target):
+            continue
 
-        for target_course_id, target_col in course_id_to_col.items():
-            actual_grade = test_vector[target_col]
-            if np.isnan(actual_grade):
-                continue
+        filtered_train = train_matrix[train_has_target]
+        train_features = np.delete(filtered_train, target_col, axis=1)
+        train_targets = filtered_train[:, target_col]
+        effective_k = min(k_value, len(filtered_train))
 
-            user_vector = test_vector.copy()
-            user_vector[target_col] = np.nan
-            if np.count_nonzero(~np.isnan(user_vector)) < MIN_USER_GRADES:
-                continue
+        imputer = SimpleImputer(strategy="mean", keep_empty_features=True)
+        imputed_train = imputer.fit_transform(train_features)
+        model = KNeighborsRegressor(
+            n_neighbors=effective_k,
+            weights="distance",
+            metric="euclidean",
+        )
+        model.fit(imputed_train, train_targets)
 
-            try:
-                prediction = _predict_from_vector(
-                    matrix=train_matrix,
-                    student_id_to_row=train_student_id_to_row,
-                    course_id_to_col=course_id_to_col,
-                    user_vector=user_vector,
-                    target_course_id=target_course_id,
-                    k=k_value,
-                    save_prediction=False,
-                )
-            except ValueError:
-                continue
+        test_has_target = ~np.isnan(test_matrix[:, target_col])
+        test_features = np.delete(test_matrix, target_col, axis=1)
+        enough_known_grades = np.count_nonzero(~np.isnan(test_features), axis=1) >= MIN_USER_GRADES
+        eligible_mask = test_has_target & enough_known_grades
 
-            actual_values.append(float(actual_grade))
-            predicted_values.append(float(prediction["predicted_grade"]))
+        if not np.any(eligible_mask):
+            continue
+
+        eligible_features = test_features[eligible_mask]
+        eligible_actuals = test_matrix[eligible_mask, target_col]
+        imputed_test = imputer.transform(eligible_features)
+        predictions = model.predict(imputed_test)
+
+        actual_values.extend(eligible_actuals.astype(float).tolist())
+        predicted_values.extend(predictions.astype(float).tolist())
 
     runtime_ms = (time.perf_counter() - started_at) * 1000
     if not actual_values:
